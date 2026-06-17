@@ -365,8 +365,18 @@ body {
   border-radius: 7px;
   color: var(--faint);
 }
-.option .opt-text { flex: 1; }
-.option .opt-mark { font-size: 1.05rem; font-weight: 700; opacity: 0; transition: opacity 0.15s ease; }
+.option .opt-text { flex: 0 1 auto; }
+/* pista secundaria que se revela al responder (p. ej. la capital de cada país) */
+.option .opt-hint { color: var(--faint); font-size: 0.92rem; }
+.option .opt-hint:not(:empty)::before { content: "·"; margin: 0 7px; color: var(--faint); }
+.option .opt-hint .hint-flag {
+  height: 20px;
+  width: auto;
+  vertical-align: -5px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+.option .opt-mark { margin-left: auto; font-size: 1.05rem; font-weight: 700; opacity: 0; transition: opacity 0.15s ease; }
 
 .option.correct { background: var(--correct-bg); border-color: var(--correct); color: var(--correct-ink); }
 .option.correct .key { background: rgba(31, 157, 107, 0.18); color: var(--correct-ink); border-color: transparent; }
@@ -406,6 +416,17 @@ body {
   font-weight: 800;
   text-shadow: 0 1px 4px rgba(255, 255, 255, 0.9);
 }
+/* nombre del país que se revela bajo cada bandera al responder (vacío antes) */
+.option.flag-option .opt-label {
+  margin-top: 7px;
+  text-align: center;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  color: var(--muted);
+}
+.option.flag-option .opt-label:empty { margin-top: 0; }
+.option.flag-option.correct .opt-label { color: var(--correct); font-weight: 700; }
+.option.flag-option.wrong .opt-label { color: var(--wrong); font-weight: 700; }
 
 /* --------------------------- feedback --------------------------- */
 

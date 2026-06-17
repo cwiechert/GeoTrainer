@@ -43,6 +43,20 @@ const QUESTION_TYPES = {
   "landmark-to-country": { label: "Monumento → País", icon: "🗽", color: "#818cf8" },
 };
 
+// Al responder, revelar en cada alternativa el dato relacionado con la pregunta:
+//   "capital"  → la opción es un país → su capital
+//   "country"  → la opción es una capital → su país
+//   "currency" → la opción es un país → su moneda
+//   "flag"     → la opción es un país → su bandera (imagen)
+const OPTION_HINT = {
+  "capital-to-country": "capital",
+  "flag-to-country": "flag",
+  "currency-to-country": "currency",
+  "silhouette-to-country": "capital",
+  "map-location-to-country": "capital",
+  "country-to-capital": "country",
+};
+
 const state = {
   all: [],
   pool: [],                                  // países según continentes elegidos
@@ -482,11 +496,13 @@ function renderQuestion() {
       btn.innerHTML =
         `<span class="key">${i + 1}</span>` +
         `<img src="${FLAG_URL(opt.flag)}" alt="" loading="eager" />` +
-        `<span class="opt-mark" aria-hidden="true"></span>`;
+        `<span class="opt-mark" aria-hidden="true"></span>` +
+        `<span class="opt-label"></span>`;
     } else {
       btn.innerHTML =
         `<span class="key">${i + 1}</span>` +
         `<span class="opt-text">${value}</span>` +
+        `<span class="opt-hint" aria-hidden="true"></span>` +
         `<span class="opt-mark" aria-hidden="true"></span>`;
     }
     btn.addEventListener("click", () => answer(value));
@@ -517,6 +533,7 @@ function answer(value) {
   }
   updateStats();
 
+  const isFlag = q.optionStyle === "flag";
   el.options.querySelectorAll(".option").forEach((btn) => {
     btn.disabled = true;
     const v = btn.dataset.value;
@@ -530,11 +547,42 @@ function answer(value) {
     } else {
       btn.classList.add("dimmed");
     }
+    // En las banderas, revelar a qué país pertenece cada alternativa.
+    if (isFlag) {
+      const label = btn.querySelector(".opt-label");
+      if (label) label.textContent = v;
+    }
+    // En las demás, revelar el dato relacionado con la pregunta.
+    const hintEl = btn.querySelector(".opt-hint");
+    if (hintEl) {
+      switch (OPTION_HINT[q.type]) {
+        case "capital":
+          hintEl.textContent = state.capitalByCountry[v] || "";
+          break;
+        case "country":
+          hintEl.textContent = state.countryByCapital[v] || "";
+          break;
+        case "currency":
+          hintEl.textContent = state.currencyByName[v] || "";
+          break;
+        case "flag": {
+          const cca2 = state.cca2ByName[v];
+          if (cca2) hintEl.innerHTML = `<img class="hint-flag" src="${FLAG_URL(cca2)}" alt="" />`;
+          break;
+        }
+      }
+    }
   });
 
   el.feedback.hidden = false;
   el.feedback.classList.add(correct ? "ok" : "bad");
-  let msg = correct ? "¡Correcto! 🎉" : `Incorrecto — la respuesta era ${q.correct}`;
+  // En banderas el país correcto ya está en el enunciado y etiquetado bajo la
+  // bandera, así que no se repite en el feedback.
+  let msg = correct
+    ? "¡Correcto! 🎉"
+    : isFlag
+    ? "Incorrecto"
+    : `Incorrecto — la respuesta era ${q.correct}`;
   if (q.note) msg += ` · ${q.note}`;
   el.feedback.textContent = msg;
 
@@ -589,6 +637,12 @@ function init() {
     return;
   }
   state.all = window.COUNTRIES;
+  state.capitalByCountry = Object.fromEntries(state.all.map((c) => [c.name, c.capital]));
+  state.countryByCapital = Object.fromEntries(state.all.map((c) => [c.capital, c.name]));
+  state.cca2ByName = Object.fromEntries(state.all.map((c) => [c.name, c.cca2]));
+  state.currencyByName = Object.fromEntries(
+    state.all.map((c) => [c.name, c.currencies[0] ? c.currencies[0].name : ""])
+  );
   state.langNames = [
     ...new Set(state.all.flatMap((c) => majorLangs(c).map((l) => l.name))),
   ];
