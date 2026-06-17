@@ -1,0 +1,11 @@
+# Descargas crudas cacheadas (se regeneran con los scripts)
+.cache/
+
+# Python
+__pycache__/
+*.pyc
+
+# SO / editores
+.DS_Store
+Thumbs.db
+.vscode/

@@ -1,0 +1,9 @@
+# Normaliza los saltos de línea a LF dentro del repositorio (consistencia
+# multiplataforma; evita el ruido CRLF↔LF en Windows).
+* text=auto eol=lf
+
+# Tratar como binario (no normalizar).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary

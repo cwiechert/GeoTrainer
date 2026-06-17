@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GeoTrainer — Entrena tu geografía</title>
+  <link rel="preconnect" href="https://flagcdn.com" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-globe" aria-hidden="true">🌍</span>
+        <span class="brand-name">GeoTrainer</span>
+      </div>
+      <div class="stats" id="stats">
+        <div class="stat">
+          <span class="stat-value" id="score">0</span>
+          <span class="stat-label">Aciertos</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" id="accuracy">—</span>
+          <span class="stat-label">Precisión</span>
+        </div>
+        <div class="stat">
+          <span class="stat-value" id="streak">0</span>
+          <span class="stat-label">Racha 🔥</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="controls" id="controls">
+      <!-- Dropdowns inyectados por JS (continentes y tipos de pregunta) -->
+    </div>
+
+    <main class="card" id="card">
+      <div class="qbadge" id="qbadge" hidden></div>
+      <div class="prompt" id="prompt"></div>
+      <div class="visual" id="visual" hidden></div>
+      <div class="options" id="options"></div>
+      <div class="feedback" id="feedback" hidden></div>
+    </main>
+
+    <footer class="footer">
+      <button class="primary" id="nextBtn" hidden>Siguiente <span aria-hidden="true">→</span></button>
+      <p class="hint"><kbd>1</kbd>–<kbd>5</kbd> responder · <kbd>Enter</kbd> siguiente</p>
+    </footer>
+  </div>
+
+  <script src="data/data.js"></script>
+  <script src="data/assets.js"></script>
+  <script src="data/worldmap.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
