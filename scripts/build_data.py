@@ -14,6 +14,7 @@ Fuente: https://github.com/mledoze/countries  (licencia ODbL)
 
 import json
 import urllib.request
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,6 +49,39 @@ def load_json(path):
 def spanish_name(country):
     spa = country.get("translations", {}).get("spa", {})
     return spa.get("common") or country["name"]["common"]
+
+
+def currency_unit(full_name):
+    """Unidad 'neutra' de una moneda: el nombre sin el gentilicio que delata el país.
+    'peso chileno' -> 'peso'; 'dólar de Barbados' -> 'dólar'; 'euro' -> 'euro'."""
+    for sep in (" del ", " de "):
+        if sep in full_name:
+            return full_name.split(sep)[0].strip()
+    toks = full_name.split()
+    return full_name if len(toks) <= 1 else " ".join(toks[:-1])
+
+
+def mark_askable_currencies(countries):
+    """Marca cada moneda con 'q' (texto a mostrar en la pregunta) solo si se puede
+    preguntar de forma justa:
+      - unidad única entre todos los países (quetzal, naira…) o el euro, y
+      - es la moneda PROPIA del país (código que empieza con su ISO, p. ej. ZW→ZWB)
+        o la única que usa (caso del euro). Así se evita preguntar por monedas
+        ajenas que algunos países listan (p. ej. la canasta de divisas de Zimbabue).
+    Se excluyen pseudomonedas como los 'bonos' de Zimbabue (ZWB)."""
+    unit_count = Counter()
+    for c in countries:
+        for m in c["currencies"]:
+            unit_count[currency_unit(m["name"])] += 1
+    for c in countries:
+        cca2 = c["cca2"].upper()
+        sole = len(c["currencies"]) == 1
+        for m in c["currencies"]:
+            u = currency_unit(m["name"])
+            distinctive = unit_count[u] == 1 or u == "euro"
+            own = m["code"][:2] == cca2
+            if distinctive and (own or sole) and m["code"] != "ZWB":
+                m["q"] = u
 
 
 def clean(raw, currency_es, language_es, capital_es):
@@ -89,6 +123,7 @@ def clean(raw, currency_es, language_es, capital_es):
             }
         )
     out.sort(key=lambda x: x["name"])
+    mark_askable_currencies(out)
     if missing_cur:
         print("AVISO: monedas sin traducción en", CURRENCIES_ES, "→", sorted(missing_cur))
     if missing_lang:

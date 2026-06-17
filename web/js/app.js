@@ -100,7 +100,14 @@ const sample = (arr, n) => shuffle(arr).slice(0, n);
 
 // candidatos para formatos que dependen de recursos
 const majorLangs = (c) => c.languages.filter((l) => !LANG_BLACKLIST.has(l.code));
-const languageCandidates = () => state.pool.filter((c) => majorLangs(c).length > 0);
+// Países con 1 idioma → respuesta única (un clic). Con 2–4 → multiselección
+// (se eligen todos los oficiales). Los de 5+ (Sudáfrica, Zimbabue) se omiten:
+// "elige los 11" sería poco práctico.
+const languageCandidates = () =>
+  state.pool.filter((c) => {
+    const k = majorLangs(c).length;
+    return k >= 1 && k <= 4;
+  });
 const silhouetteCandidates = () => state.pool.filter((c) => ASSETS.silhouettes[c.cca2]);
 const landmarkCandidates = () => state.pool.filter((c) => ASSETS.landmarks[c.cca2]);
 // países con forma vectorial utilizable (excluye los que cruzan el antimeridiano)
@@ -257,6 +264,8 @@ const FORMATS = {
     );
     return {
       prompt: `¿Cuál es la capital de <span class="highlight">${c.name}</span>?`,
+      // la bandera del país como apoyo visual para aprender la asociación
+      image: { src: FLAG_URL(c.cca2), alt: `Bandera de ${c.name}`, kind: "flag" },
       correct: c.capital,
       options: shuffle([c.capital, ...distractors]),
     };
@@ -293,8 +302,10 @@ const FORMATS = {
   },
 
   "currency-to-country": () => {
+    // Solo monedas "preguntables" (unidad que no delata el país, marcada con .q).
     // Distractores que NO comparten moneda con el correcto → respuesta única.
-    const c = pick(state.pool.filter((x) => x.currencies.length > 0));
+    const c = pick(state.pool.filter((x) => x.currencies.some((m) => m.q)));
+    const cur = pick(c.currencies.filter((m) => m.q));
     const codes = new Set(c.currencies.map((m) => m.code));
     const distractors = sample(
       state.all.filter(
@@ -303,7 +314,7 @@ const FORMATS = {
       4
     ).map((x) => x.name);
     return {
-      prompt: `¿Qué país usa la moneda <span class="highlight">${c.currencies[0].name}</span>?`,
+      prompt: `¿Qué país usa la moneda <span class="highlight">${cur.q}</span>?`,
       correct: c.name,
       options: shuffle([c.name, ...distractors]),
     };
@@ -311,13 +322,29 @@ const FORMATS = {
 
   "country-to-language": () => {
     const c = pick(languageCandidates());
-    const correctLang = pick(majorLangs(c));
+    const langs = majorLangs(c).map((l) => l.name);
     const own = new Set(c.languages.map((l) => l.name));
-    const distractors = sample(state.langNames.filter((n) => !own.has(n)), 4);
+    if (langs.length === 1) {
+      // un solo idioma oficial → respuesta única
+      const distractors = sample(state.langNames.filter((n) => !own.has(n)), 4);
+      return {
+        prompt: `¿Qué idioma se habla en <span class="highlight">${c.name}</span>?`,
+        image: { src: FLAG_URL(c.cca2), alt: `Bandera de ${c.name}`, kind: "flag" },
+        correct: langs[0],
+        options: shuffle([langs[0], ...distractors]),
+      };
+    }
+    // varios idiomas oficiales → multiselección (hay que marcarlos todos)
+    const distractors = sample(
+      state.langNames.filter((n) => !own.has(n)),
+      Math.max(2, 5 - langs.length)
+    );
     return {
-      prompt: `¿Qué idioma se habla en <span class="highlight">${c.name}</span>?`,
-      correct: correctLang.name,
-      options: shuffle([correctLang.name, ...distractors]),
+      prompt: `¿Qué idiomas se hablan en <span class="highlight">${c.name}</span>?`,
+      image: { src: FLAG_URL(c.cca2), alt: `Bandera de ${c.name}`, kind: "flag" },
+      multi: true,
+      correctSet: langs,
+      options: shuffle([...langs, ...distractors]),
     };
   },
 
@@ -363,7 +390,7 @@ function formatUsable(type) {
     case "map-location-to-country":
       return mapCandidates().length >= 1 && state.pool.length >= 5;
     case "currency-to-country":
-      return state.pool.some((c) => c.currencies.length > 0);
+      return state.pool.some((c) => c.currencies.some((m) => m.q));
     case "country-to-language":
       return languageCandidates().length >= 1;
     case "country-to-region":
@@ -461,7 +488,8 @@ function renderQuestion() {
   el.qbadge.style.setProperty("--badge", meta.color);
   el.qbadge.innerHTML = `<span class="badge-icon">${meta.icon}</span> ${meta.label}`;
 
-  el.prompt.innerHTML = q.prompt;
+  el.prompt.innerHTML =
+    q.prompt + (q.multi ? `<span class="multi-hint">Elige todas las que correspondan</span>` : "");
 
   // área visual (bandera / silueta / monumento / mapa)
   el.visual.innerHTML = "";
@@ -481,7 +509,7 @@ function renderQuestion() {
     el.visual.hidden = true;
   }
 
-  // opciones (texto o banderas)
+  // opciones (texto, banderas o multiselección)
   el.options.innerHTML = "";
   el.options.classList.toggle("flag-grid", q.optionStyle === "flag");
   q.options.forEach((opt, i) => {
@@ -498,20 +526,33 @@ function renderQuestion() {
         `<img src="${FLAG_URL(opt.flag)}" alt="" loading="eager" />` +
         `<span class="opt-mark" aria-hidden="true"></span>` +
         `<span class="opt-label"></span>`;
+      btn.addEventListener("click", () => answer(value));
     } else {
       btn.innerHTML =
         `<span class="key">${i + 1}</span>` +
         `<span class="opt-text">${value}</span>` +
         `<span class="opt-hint" aria-hidden="true"></span>` +
         `<span class="opt-mark" aria-hidden="true"></span>`;
+      if (q.multi) {
+        btn.classList.add("multi");
+        btn.setAttribute("aria-pressed", "false");
+        btn.addEventListener("click", () => toggleMulti(btn));
+      } else {
+        btn.addEventListener("click", () => answer(value));
+      }
     }
-    btn.addEventListener("click", () => answer(value));
     el.options.appendChild(btn);
   });
 
   el.feedback.hidden = true;
   el.feedback.className = "feedback";
-  el.nextBtn.hidden = true;
+  if (q.multi) {
+    el.nextBtn.hidden = false;
+    el.nextBtn.innerHTML = "Comprobar";
+  } else {
+    el.nextBtn.hidden = true;
+    el.nextBtn.innerHTML = 'Siguiente <span aria-hidden="true">→</span>';
+  }
 
   el.card.classList.remove("fade-in");
   void el.card.offsetWidth;
@@ -562,9 +603,13 @@ function answer(value) {
         case "country":
           hintEl.textContent = state.countryByCapital[v] || "";
           break;
-        case "currency":
-          hintEl.textContent = state.currencyByName[v] || "";
+        case "currency": {
+          const cca2 = state.cca2ByName[v];
+          const cur = state.currencyByName[v] || "";
+          hintEl.innerHTML =
+            (cca2 ? `<img class="hint-flag" src="${FLAG_URL(cca2)}" alt="" /> ` : "") + cur;
           break;
+        }
         case "flag": {
           const cca2 = state.cca2ByName[v];
           if (cca2) hintEl.innerHTML = `<img class="hint-flag" src="${FLAG_URL(cca2)}" alt="" />`;
@@ -590,6 +635,66 @@ function answer(value) {
   el.nextBtn.focus();
 }
 
+/* ------------------------- multiselección ------------------------- */
+
+function toggleMulti(btn) {
+  if (state.answered) return;
+  const on = btn.classList.toggle("selected");
+  btn.setAttribute("aria-pressed", String(on));
+}
+
+function checkMultiAnswer() {
+  if (state.answered) return;
+  state.answered = true;
+  const q = state.current;
+  const correctSet = new Set(q.correctSet);
+  const selected = new Set(
+    [...el.options.querySelectorAll(".option.selected")].map((b) => b.dataset.value)
+  );
+  const isCorrect =
+    selected.size === correctSet.size && [...correctSet].every((v) => selected.has(v));
+
+  state.total += 1;
+  if (isCorrect) {
+    state.score += 1;
+    state.streak += 1;
+  } else {
+    state.streak = 0;
+  }
+  updateStats();
+
+  el.options.querySelectorAll(".option").forEach((btn) => {
+    btn.disabled = true;
+    btn.classList.remove("selected");
+    const v = btn.dataset.value;
+    const mark = btn.querySelector(".opt-mark");
+    if (correctSet.has(v)) {
+      btn.classList.add("correct"); // todas las correctas en verde (las que faltó marcar incluidas)
+      mark.textContent = "✓";
+    } else if (selected.has(v)) {
+      btn.classList.add("wrong");
+      mark.textContent = "✗";
+    } else {
+      btn.classList.add("dimmed");
+    }
+  });
+
+  el.feedback.hidden = false;
+  el.feedback.classList.add(isCorrect ? "ok" : "bad");
+  el.feedback.textContent = isCorrect
+    ? "¡Correcto! 🎉"
+    : `Incorrecto — eran: ${q.correctSet.join(", ")}`;
+
+  el.nextBtn.innerHTML = 'Siguiente <span aria-hidden="true">→</span>';
+  el.nextBtn.focus();
+}
+
+// El botón principal hace "Comprobar" (multiselección sin responder) o "Siguiente".
+function onPrimary() {
+  if (state.current && state.current.multi && !state.answered) checkMultiAnswer();
+  else newQuestion();
+}
+
 function updateStats() {
   el.score.textContent = state.score;
   el.streak.textContent = state.streak;
@@ -609,24 +714,33 @@ const TYPE_AVAILABLE = {
   "flag-to-country": () => true,
   "country-to-flag": () => true,
   "country-to-region": () => true,
-  "currency-to-country": () => state.all.some((c) => c.currencies.length > 0),
+  "currency-to-country": () => state.all.some((c) => c.currencies.some((m) => m.q)),
   "country-to-language": () =>
-    state.all.some((c) => (c.languages || []).some((l) => !LANG_BLACKLIST.has(l.code))),
+    state.all.some((c) => {
+      const k = majorLangs(c).length;
+      return k >= 1 && k <= 4;
+    }),
   "silhouette-to-country": () => Object.keys(ASSETS.silhouettes).length > 0,
   "map-location-to-country": () => Object.keys(WM.c).length > 0,
   "landmark-to-country": () => Object.keys(ASSETS.landmarks).length > 0,
 };
 
 function bindEvents() {
-  el.nextBtn.addEventListener("click", newQuestion);
+  el.nextBtn.addEventListener("click", onPrimary);
   document.addEventListener("keydown", (e) => {
     if (e.target.matches("input, select, textarea")) return;
-    if (e.key >= "1" && e.key <= "5" && !state.answered) {
-      const btn = el.options.querySelectorAll(".option")[Number(e.key) - 1];
+    const n = Number(e.key);
+    if (n >= 1 && n <= 9 && !state.answered) {
+      const btn = el.options.querySelectorAll(".option")[n - 1];
       if (btn) btn.click();
-    } else if ((e.key === "Enter" || e.key === " ") && state.answered) {
-      e.preventDefault();
-      newQuestion();
+    } else if (e.key === "Enter" || e.key === " ") {
+      if (state.current && state.current.multi && !state.answered) {
+        e.preventDefault();
+        checkMultiAnswer();
+      } else if (state.answered) {
+        e.preventDefault();
+        newQuestion();
+      }
     }
   });
 }
@@ -641,7 +755,12 @@ function init() {
   state.countryByCapital = Object.fromEntries(state.all.map((c) => [c.capital, c.name]));
   state.cca2ByName = Object.fromEntries(state.all.map((c) => [c.name, c.cca2]));
   state.currencyByName = Object.fromEntries(
-    state.all.map((c) => [c.name, c.currencies[0] ? c.currencies[0].name : ""])
+    state.all.map((c) => {
+      // moneda propia del país (código que empieza con su ISO) o, si no, la primera
+      const own = c.currencies.find((m) => m.code.slice(0, 2).toLowerCase() === c.cca2);
+      const m = own || c.currencies[0];
+      return [c.name, m ? m.name : ""];
+    })
   );
   state.langNames = [
     ...new Set(state.all.flatMap((c) => majorLangs(c).map((l) => l.name))),

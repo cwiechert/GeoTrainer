@@ -386,6 +386,18 @@ body {
 .option.wrong .opt-mark { opacity: 1; color: var(--wrong); }
 .option.dimmed { opacity: 0.5; }
 
+/* multiselección (idiomas de países plurilingües) */
+.option.multi.selected { border-color: var(--accent); background: var(--accent-tint); }
+.option.multi.selected .key { background: var(--accent); color: #fff; border-color: transparent; }
+.multi-hint {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--muted);
+  font-family: var(--font);
+}
+
 /* opciones como banderas (país→bandera) */
 .options.flag-grid {
   display: grid;
