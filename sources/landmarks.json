@@ -128,5 +128,10 @@
   { "cca2": "kp", "name": "Torre Juche", "wiki": "Juche Tower" },
   { "cca2": "sy", "name": "Palmira", "wiki": "Palmyra" },
   { "cca2": "iq", "name": "Zigurat de Ur", "wiki": "Ziggurat of Ur" },
-  { "cca2": "sa", "name": "Kingdom Centre", "wiki": "Kingdom Centre" }
+  { "cca2": "sa", "name": "Kingdom Centre", "wiki": "Kingdom Centre" },
+
+  { "cca2": "gb-eng", "name": "Stonehenge", "wiki": "Stonehenge" },
+  { "cca2": "gb-sct", "name": "Castillo de Edimburgo", "wiki": "Edinburgh Castle" },
+  { "cca2": "gb-wls", "name": "Castillo de Conwy", "wiki": "Conwy Castle" },
+  { "cca2": "gb-nir", "name": "Calzada del Gigante", "wiki": "Giant's Causeway" }
 ]

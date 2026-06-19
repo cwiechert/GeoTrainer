@@ -4,6 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GeoTrainer — Entrena tu geografía</title>
+  <script>
+    // Fija el tema antes de pintar (evita parpadeo): preferencia guardada o la del sistema.
+    (function () {
+      var t = localStorage.getItem("geotrainer.theme");
+      if (t !== "dark" && t !== "light") {
+        t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      document.documentElement.dataset.theme = t;
+    })();
+  </script>
   <link rel="preconnect" href="https://flagcdn.com" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>

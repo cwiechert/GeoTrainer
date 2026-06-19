@@ -88,6 +88,8 @@ def fetch_silhouettes(cca2_list):
     SIL_DIR.mkdir(parents=True, exist_ok=True)
     have, missing = [], []
     for cca2 in cca2_list:
+        if "-" in cca2:
+            continue  # subdivisiones (gb-eng…): mapsicon no tiene su silueta
         dest = SIL_DIR / f"{cca2}.svg"
         if dest.exists() and dest.stat().st_size > 0:
             have.append(cca2)

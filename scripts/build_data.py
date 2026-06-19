@@ -27,6 +27,7 @@ RAW_FILE = CACHE / "countries_raw.json"
 CURRENCIES_ES = SOURCES / "currencies_es.json"
 LANGUAGES_ES = SOURCES / "languages_es.json"
 CAPITALS_ES = SOURCES / "capitals_es.json"
+EXTRA = SOURCES / "extra_subdivisions.json"  # naciones constituyentes (no miembros ONU)
 OUT_FILE = WEB_DATA / "data.js"
 
 MAIN_REGIONS = {"Africa", "Americas", "Asia", "Europe", "Oceania"}
@@ -122,6 +123,7 @@ def clean(raw, currency_es, language_es, capital_es):
                 "latlng": [round(latlng[0], 2), round(latlng[1], 2)] if len(latlng) == 2 else None,
             }
         )
+    out.extend(load_json(EXTRA))  # Inglaterra, Escocia, Gales, Irlanda del Norte
     out.sort(key=lambda x: x["name"])
     mark_askable_currencies(out)
     if missing_cur:

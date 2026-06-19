@@ -232,7 +232,32 @@ function buildControls() {
     onChange: () => newQuestion(),
   });
 
-  el.controls.append(continents, types);
+  const themeBtn = document.createElement("button");
+  themeBtn.type = "button";
+  themeBtn.className = "theme-toggle";
+  themeBtn.addEventListener("click", toggleTheme);
+  el.themeToggle = themeBtn;
+
+  el.controls.append(continents, types, themeBtn);
+  updateThemeButton();
+}
+
+function updateThemeButton() {
+  if (!el.themeToggle) return;
+  const dark = document.documentElement.dataset.theme === "dark";
+  el.themeToggle.textContent = dark ? "☀️" : "🌙";
+  const label = dark ? "Cambiar a modo claro" : "Cambiar a modo oscuro";
+  el.themeToggle.setAttribute("aria-label", label);
+  el.themeToggle.title = label;
+}
+
+function toggleTheme() {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try {
+    localStorage.setItem("geotrainer.theme", next);
+  } catch (_) {}
+  updateThemeButton();
 }
 
 /* ----------------------- generador de preguntas -------------------- */
@@ -248,7 +273,8 @@ function buildNameOptions(country, pool) {
 
 const FORMATS = {
   "capital-to-country": () => {
-    const c = pick(state.pool);
+    // Solo capitales únicas como enunciado (evita "Londres" → ¿Inglaterra o Reino Unido?)
+    const c = pick(state.pool.filter((x) => state.uniqueCapitals.has(x.capital)));
     return {
       prompt: `¿A qué país pertenece la capital <span class="highlight">${c.capital}</span>?`,
       correct: c.name,
@@ -259,7 +285,7 @@ const FORMATS = {
   "country-to-capital": () => {
     const c = pick(state.pool);
     const distractors = sample(
-      state.pool.filter((x) => x.capital !== c.capital).map((x) => x.capital),
+      [...new Set(state.pool.filter((x) => x.capital !== c.capital).map((x) => x.capital))],
       4
     );
     return {
@@ -395,6 +421,8 @@ function formatUsable(type) {
       return languageCandidates().length >= 1;
     case "country-to-region":
       return true;
+    case "capital-to-country":
+      return state.pool.length >= 5 && state.pool.some((c) => state.uniqueCapitals.has(c.capital));
     default:
       return state.pool.length >= 5;
   }
@@ -753,6 +781,13 @@ function init() {
   state.all = window.COUNTRIES;
   state.capitalByCountry = Object.fromEntries(state.all.map((c) => [c.name, c.capital]));
   state.countryByCapital = Object.fromEntries(state.all.map((c) => [c.capital, c.name]));
+  // capitales únicas: "Londres" la comparten Reino Unido e Inglaterra, así que no
+  // se usa como enunciado de capital→país (sería ambiguo).
+  const capCount = {};
+  state.all.forEach((c) => (capCount[c.capital] = (capCount[c.capital] || 0) + 1));
+  state.uniqueCapitals = new Set(
+    state.all.filter((c) => capCount[c.capital] === 1).map((c) => c.capital)
+  );
   state.cca2ByName = Object.fromEntries(state.all.map((c) => [c.name, c.cca2]));
   state.currencyByName = Object.fromEntries(
     state.all.map((c) => {

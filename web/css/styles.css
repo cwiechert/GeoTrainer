@@ -43,6 +43,65 @@
   --font-mono: "Space Mono", ui-monospace, monospace;
 }
 
+/* ===================== Tema oscuro ===================== */
+html[data-theme="dark"] {
+  --bg: #0f1620;
+  --surface: #18222e;
+  --surface-2: #1d2935;
+  --surface-3: #243140;
+  --border: #2c3a48;
+  --border-strong: #3c4d5d;
+  --border-soft: #232f3c;
+
+  --ink: #e7eef4;
+  --muted: #a6b4c0;
+  --faint: #6f7e8c;
+
+  --accent: #3fb6c6;
+  --accent-strong: #58c6d4;
+  --accent-deep: #2a98a8;
+  --accent-tint: rgba(63, 182, 198, 0.16);
+
+  --correct: #34d399;
+  --correct-ink: #6ee7b7;
+  --correct-bg: rgba(52, 211, 153, 0.16);
+  --wrong: #fb7185;
+  --wrong-ink: #fda4af;
+  --wrong-bg: rgba(251, 113, 133, 0.16);
+
+  --shadow-card: 0 18px 50px rgba(0, 0, 0, 0.55);
+  --shadow-pop: 0 16px 44px rgba(0, 0, 0, 0.6);
+  --shadow-img: 0 10px 26px rgba(0, 0, 0, 0.55);
+}
+/* el botón primario lleva texto oscuro sobre el turquesa claro del modo oscuro */
+html[data-theme="dark"] .primary { color: #06222a; }
+/* silueta: en oscuro la teñimos clara para que resalte sobre la tarjeta */
+html[data-theme="dark"] .visual-silhouette img {
+  filter: brightness(0) invert(0.82) drop-shadow(0 6px 16px rgba(0, 0, 0, 0.55));
+}
+/* mapa: océano y tierra oscuros */
+html[data-theme="dark"] .geo-map { background: #16212e; }
+html[data-theme="dark"] .geo-land { fill: #33404e; stroke: #1b2632; }
+/* el país resaltado debe ganarle a .geo-land en oscuro (misma especificidad, va después) */
+html[data-theme="dark"] .geo-target { fill: var(--accent); }
+
+/* botón para alternar el tema */
+.theme-toggle {
+  margin-left: auto;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.theme-toggle:hover { border-color: var(--accent); }
+
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 

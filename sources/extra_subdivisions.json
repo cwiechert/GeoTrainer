@@ -1,0 +1,6 @@
+[
+  { "name": "Inglaterra",         "capital": "Londres",   "region": "Europe", "cca2": "gb-eng", "currencies": [{ "code": "GBP", "name": "libra esterlina" }], "languages": [], "latlng": null },
+  { "name": "Escocia",            "capital": "Edimburgo", "region": "Europe", "cca2": "gb-sct", "currencies": [{ "code": "GBP", "name": "libra esterlina" }], "languages": [], "latlng": null },
+  { "name": "Gales",              "capital": "Cardiff",   "region": "Europe", "cca2": "gb-wls", "currencies": [{ "code": "GBP", "name": "libra esterlina" }], "languages": [], "latlng": null },
+  { "name": "Irlanda del Norte",  "capital": "Belfast",   "region": "Europe", "cca2": "gb-nir", "currencies": [{ "code": "GBP", "name": "libra esterlina" }], "languages": [], "latlng": null }
+]
