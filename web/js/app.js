@@ -9,6 +9,7 @@
 
 const FLAG_URL = (cca2) => `https://flagcdn.com/w320/${cca2}.png`;
 const ASSETS = window.ASSETS || { silhouettes: {}, landmarks: {} };
+const LANDMARKS = window.LANDMARKS || {}; // { cca2: [{ name, src }, ...] }
 const WM = window.WORLDMAP || { w: 0, h: 0, c: {} };
 
 const REGIONS = [
@@ -109,7 +110,8 @@ const languageCandidates = () =>
     return k >= 1 && k <= 4;
   });
 const silhouetteCandidates = () => state.pool.filter((c) => ASSETS.silhouettes[c.cca2]);
-const landmarkCandidates = () => state.pool.filter((c) => ASSETS.landmarks[c.cca2]);
+const landmarkCandidates = () =>
+  state.pool.filter((c) => LANDMARKS[c.cca2] && LANDMARKS[c.cca2].length);
 // países con forma vectorial utilizable (excluye los que cruzan el antimeridiano)
 const mapCandidates = () => state.pool.filter((c) => WM.c[c.cca2] && !WM.c[c.cca2].x);
 
@@ -396,10 +398,10 @@ const FORMATS = {
 
   "landmark-to-country": () => {
     const c = pick(landmarkCandidates());
-    const lm = ASSETS.landmarks[c.cca2];
+    const lm = pick(LANDMARKS[c.cca2]); // uno al azar de los monumentos del país
     return {
       prompt: "¿En qué país está este monumento?",
-      image: { src: lm.file, alt: lm.name, kind: "landmark" },
+      image: { src: lm.src, alt: lm.name, kind: "landmark" },
       correct: c.name,
       options: buildNameOptions(c, state.pool),
       note: lm.name,
@@ -750,7 +752,7 @@ const TYPE_AVAILABLE = {
     }),
   "silhouette-to-country": () => Object.keys(ASSETS.silhouettes).length > 0,
   "map-location-to-country": () => Object.keys(WM.c).length > 0,
-  "landmark-to-country": () => Object.keys(ASSETS.landmarks).length > 0,
+  "landmark-to-country": () => Object.keys(LANDMARKS).length > 0,
 };
 
 function bindEvents() {
