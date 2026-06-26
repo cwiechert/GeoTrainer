@@ -65,6 +65,8 @@ const state = {
   selectedTypes: new Set(),                  // se inicializa con los tipos disponibles
   availableTypes: [],
   langNames: [],                             // idiomas reconocibles (para distractores)
+  seen: new Set(),                           // preguntas (tipo+país) ya vistas en el ciclo
+  lastKey: null,                             // última pregunta mostrada (evita repetir al reiniciar)
   current: null,
   answered: false,
   score: 0,
@@ -274,9 +276,7 @@ function buildNameOptions(country, pool) {
 }
 
 const FORMATS = {
-  "capital-to-country": () => {
-    // Solo capitales únicas como enunciado (evita "Londres" → ¿Inglaterra o Reino Unido?)
-    const c = pick(state.pool.filter((x) => state.uniqueCapitals.has(x.capital)));
+  "capital-to-country": (c) => {
     return {
       prompt: `¿A qué país pertenece la capital <span class="highlight">${c.capital}</span>?`,
       correct: c.name,
@@ -284,8 +284,7 @@ const FORMATS = {
     };
   },
 
-  "country-to-capital": () => {
-    const c = pick(state.pool);
+  "country-to-capital": (c) => {
     const distractors = sample(
       [...new Set(state.pool.filter((x) => x.capital !== c.capital).map((x) => x.capital))],
       4
@@ -299,8 +298,7 @@ const FORMATS = {
     };
   },
 
-  "flag-to-country": () => {
-    const c = pick(state.pool);
+  "flag-to-country": (c) => {
     return {
       prompt: "¿De qué país es esta bandera?",
       image: { src: FLAG_URL(c.cca2), alt: `Bandera de ${c.name}`, kind: "flag" },
@@ -309,8 +307,7 @@ const FORMATS = {
     };
   },
 
-  "country-to-flag": () => {
-    const c = pick(state.pool);
+  "country-to-flag": (c) => {
     const distractors = sample(state.pool.filter((x) => x.cca2 !== c.cca2), 4);
     return {
       prompt: `¿Cuál es la bandera de <span class="highlight">${c.name}</span>?`,
@@ -320,8 +317,7 @@ const FORMATS = {
     };
   },
 
-  "country-to-region": () => {
-    const c = pick(state.pool);
+  "country-to-region": (c) => {
     return {
       prompt: `¿En qué continente está <span class="highlight">${c.name}</span>?`,
       correct: REGION_LABELS[c.region],
@@ -329,10 +325,9 @@ const FORMATS = {
     };
   },
 
-  "currency-to-country": () => {
+  "currency-to-country": (c) => {
     // Solo monedas "preguntables" (unidad que no delata el país, marcada con .q).
     // Distractores que NO comparten moneda con el correcto → respuesta única.
-    const c = pick(state.pool.filter((x) => x.currencies.some((m) => m.q)));
     const cur = pick(c.currencies.filter((m) => m.q));
     const codes = new Set(c.currencies.map((m) => m.code));
     const distractors = sample(
@@ -348,8 +343,7 @@ const FORMATS = {
     };
   },
 
-  "country-to-language": () => {
-    const c = pick(languageCandidates());
+  "country-to-language": (c) => {
     const langs = majorLangs(c).map((l) => l.name);
     const own = new Set(c.languages.map((l) => l.name));
     if (langs.length === 1) {
@@ -376,8 +370,7 @@ const FORMATS = {
     };
   },
 
-  "silhouette-to-country": () => {
-    const c = pick(silhouetteCandidates());
+  "silhouette-to-country": (c) => {
     return {
       prompt: "¿A qué país pertenece esta silueta?",
       image: { src: `assets/silhouettes/${c.cca2}.svg`, alt: `Silueta de ${c.name}`, kind: "silhouette" },
@@ -386,8 +379,7 @@ const FORMATS = {
     };
   },
 
-  "map-location-to-country": () => {
-    const c = pick(mapCandidates());
+  "map-location-to-country": (c) => {
     return {
       prompt: "¿Qué país está resaltado en el mapa?",
       mapShape: c.cca2,
@@ -396,8 +388,7 @@ const FORMATS = {
     };
   },
 
-  "landmark-to-country": () => {
-    const c = pick(landmarkCandidates());
+  "landmark-to-country": (c) => {
     const lm = pick(LANDMARKS[c.cca2]); // uno al azar de los monumentos del país
     return {
       prompt: "¿En qué país está este monumento?",
@@ -438,6 +429,26 @@ function enabledFormats() {
   return active;
 }
 
+// Países que pueden ser el sujeto de cada tipo de pregunta (con los filtros activos).
+function formatCandidates(type) {
+  switch (type) {
+    case "capital-to-country":
+      return state.pool.filter((x) => state.uniqueCapitals.has(x.capital));
+    case "currency-to-country":
+      return state.pool.filter((x) => x.currencies.some((m) => m.q));
+    case "country-to-language":
+      return languageCandidates();
+    case "silhouette-to-country":
+      return silhouetteCandidates();
+    case "map-location-to-country":
+      return mapCandidates();
+    case "landmark-to-country":
+      return landmarkCandidates();
+    default: // country-to-capital, flag-to-country, country-to-flag, country-to-region
+      return state.pool;
+  }
+}
+
 function newQuestion() {
   if (state.pool.length < 5) {
     renderError("Selecciona al menos un continente para empezar.");
@@ -448,8 +459,25 @@ function newQuestion() {
     renderError("No hay preguntas disponibles con esta combinación. Activa más tipos o continentes.");
     return;
   }
-  const type = pick(formats);
-  state.current = { type, ...FORMATS[type]() };
+
+  // Todas las preguntas posibles (tipo + país sujeto) según los filtros actuales.
+  const pairs = [];
+  for (const t of formats)
+    for (const c of formatCandidates(t)) pairs.push({ t, c, key: t + ":" + c.cca2 });
+
+  // Bolsa sin reemplazo: elige solo entre las preguntas no vistas en este ciclo.
+  let candidates = pairs.filter((p) => !state.seen.has(p.key));
+  if (candidates.length === 0) {
+    // Ciclo agotado (ya se vieron todas): reinicia evitando repetir de inmediato la última.
+    state.seen = new Set();
+    candidates = pairs.filter((p) => p.key !== state.lastKey);
+    if (candidates.length === 0) candidates = pairs;
+  }
+
+  const chosen = pick(candidates);
+  state.seen.add(chosen.key);
+  state.lastKey = chosen.key;
+  state.current = { type: chosen.t, ...FORMATS[chosen.t](chosen.c) };
   state.answered = false;
   renderQuestion();
 }
